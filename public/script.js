@@ -35,7 +35,7 @@ const exchangeRates = {
     'EUR': 1.09,
     'KZT': 0.0022,
     'UAH': 0.024,
-    'TON': tonPrice,
+    'TON': 5.5,
     'STARS': 0.013
 };
 
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     setupOrderCreation();
     startDealsHistory();
     setupAdminTrigger();
-    updateTonPrice();
+    await updateTonPrice(); // Сразу загружаем актуальный курс
     await checkOrderFromUrl();
     startNotificationPolling();
 });
@@ -105,14 +105,41 @@ async function loadUserOrders() {
     }
 }
 
-// Обновление курса TON
-function updateTonPrice() {
-    setInterval(function() {
-        const change = (Math.random() - 0.5) * 0.04;
-        tonPrice = parseFloat((tonPrice * (1 + change)).toFixed(2));
-        tonPrice = Math.max(4.5, Math.min(6.5, tonPrice));
-        exchangeRates.TON = tonPrice;
-    }, 30000);
+// Обновление курса TON с реальной биржи
+async function updateTonPrice() {
+    console.log('💱 Загрузка актуального курса TON...');
+    
+    try {
+        // Используем CoinGecko API (бесплатный, без регистрации)
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
+        
+        if (response.ok) {
+            const data = await response.json();
+            const newPrice = data['the-open-network']?.usd;
+            
+            if (newPrice && !isNaN(newPrice)) {
+                tonPrice = parseFloat(newPrice.toFixed(2));
+                exchangeRates.TON = tonPrice;
+                console.log(`✅ Курс TON обновлён: $${tonPrice}`);
+                
+                // Обновляем отображение на странице, если есть элемент для курса
+                const priceElement = document.getElementById('tonPriceDisplay');
+                if (priceElement) {
+                    priceElement.textContent = `$${tonPrice}`;
+                }
+            } else {
+                console.warn('⚠️ Некорректные данные курса TON');
+            }
+        } else {
+            console.warn('⚠️ Не удалось получить курс TON, используется предыдущее значение');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки курса TON:', error);
+        console.log('ℹ️ Используется последнее известное значение:', tonPrice);
+    }
+    
+    // Обновляем курс каждые 60 секунд
+    setTimeout(updateTonPrice, 60000);
 }
 
 // Конвертация в USD

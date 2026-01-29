@@ -39,14 +39,75 @@ const exchangeRates = {
     'STARS': 0.013
 };
 
+// ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ЯЗЫКА - ОПРЕДЕЛЕНА ГЛОБАЛЬНО
+window.switchLanguage = function(lang) {
+    if (typeof translations !== 'undefined' && translations[lang]) {
+        currentLanguage = lang;
+        localStorage.setItem('language', lang);
+        
+        // Обновляем активную кнопку
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-lang') === lang) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Обновляем HTML атрибут языка
+        document.documentElement.lang = lang === 'ru' ? 'ru' : 'en';
+        
+        // Обновляем все переводы на странице
+        updatePageTranslations();
+        
+        // Перезагружаем динамический контент
+        if (typeof updateOrdersList === 'function') {
+            updateOrdersList();
+        }
+        
+        if (typeof updateProfileStats === 'function') {
+            updateProfileStats();
+        }
+        
+        // Показываем уведомление о смене языка
+        const langName = lang === 'ru' ? 'Русский' : 'English';
+        showToast(
+            t('success'),
+            lang === 'ru' ? 'Язык изменён на Русский' : 'Language changed to English',
+            'success'
+        );
+    }
+};
+
 // Инициализация
 document.addEventListener('DOMContentLoaded', async function() {
+    // Инициализируем язык
+    const savedLang = localStorage.getItem('language') || 'ru';
+    if (typeof currentLanguage !== 'undefined') {
+        currentLanguage = savedLang;
+    }
+    
+    // Устанавливаем активную кнопку языка
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-lang') === savedLang) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Устанавливаем HTML атрибут языка
+    document.documentElement.lang = savedLang === 'ru' ? 'ru' : 'en';
+    
+    // Применяем переводы
+    if (typeof updatePageTranslations === 'function') {
+        updatePageTranslations();
+    }
+    
     await initUser();
     setupNavigation();
     setupOrderCreation();
     startDealsHistory();
     setupAdminTrigger();
-    await updateTonPrice(); // Сразу загружаем актуальный курс
+    await updateTonPrice();
     await checkOrderFromUrl();
     startNotificationPolling();
 });
@@ -89,7 +150,7 @@ async function initUser() {
         await loadUserOrders();
     } catch (error) {
         console.error('Ошибка инициализации пользователя:', error);
-        showToast('Ошибка', 'Не удалось подключиться к серверу', 'error');
+        showToast(t('error'), t('serverError'), 'error');
     }
 }
 
@@ -110,7 +171,6 @@ async function updateTonPrice() {
     console.log('💱 Загрузка актуального курса TON...');
     
     try {
-        // Используем CoinGecko API (бесплатный, без регистрации)
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
         
         if (response.ok) {
@@ -122,7 +182,6 @@ async function updateTonPrice() {
                 exchangeRates.TON = tonPrice;
                 console.log(`✅ Курс TON обновлён: $${tonPrice}`);
                 
-                // Обновляем отображение на странице, если есть элемент для курса
                 const priceElement = document.getElementById('tonPriceDisplay');
                 if (priceElement) {
                     priceElement.textContent = `$${tonPrice}`;
@@ -138,7 +197,6 @@ async function updateTonPrice() {
         console.log('ℹ️ Используется последнее известное значение:', tonPrice);
     }
     
-    // Обновляем курс каждые 60 секунд
     setTimeout(updateTonPrice, 60000);
 }
 
@@ -151,7 +209,7 @@ function convertToUSD(amount, currency) {
 // Обновление UI
 function updateUserInterface() {
     if (userData.requisites.tonWallet) {
-        document.getElementById('tonStatus').textContent = 'Добавлен';
+        document.getElementById('tonStatus').textContent = t('added');
         document.getElementById('tonStatus').classList.add('active');
         document.getElementById('tonWalletAddress').textContent = userData.requisites.tonWallet;
         document.getElementById('tonWalletDisplay').style.display = 'block';
@@ -159,7 +217,7 @@ function updateUserInterface() {
     }
     
     if (userData.requisites.card) {
-        document.getElementById('cardStatus').textContent = 'Добавлена';
+        document.getElementById('cardStatus').textContent = t('addedFemale');
         document.getElementById('cardStatus').classList.add('active');
         const cardInfo = `${userData.requisites.card}${userData.requisites.cardBank ? ' (' + userData.requisites.cardBank + ')' : ''}`;
         document.getElementById('cardInfo').textContent = cardInfo + ' (' + userData.requisites.cardCurrency + ')';
@@ -168,7 +226,7 @@ function updateUserInterface() {
     }
     
     if (userData.requisites.telegram) {
-        document.getElementById('telegramStatus').textContent = 'Добавлен';
+        document.getElementById('telegramStatus').textContent = t('added');
         document.getElementById('telegramStatus').classList.add('active');
         document.getElementById('telegramUsername').textContent = userData.requisites.telegram;
         document.getElementById('telegramDisplay').style.display = 'block';
@@ -233,16 +291,16 @@ async function saveTonWallet() {
             if (response.ok) {
                 userData.requisites.tonWallet = wallet;
                 updateUserInterface();
-                showToast('Успешно', 'TON кошелёк сохранён', 'success');
+                showToast(t('success'), t('tonWalletSaved'), 'success');
             } else {
                 throw new Error('Ошибка сохранения');
             }
         } catch (error) {
             console.error('Ошибка:', error);
-            showToast('Ошибка', 'Не удалось сохранить кошелёк', 'error');
+            showToast(t('error'), t('saveError'), 'error');
         }
     } else {
-        showToast('Ошибка', 'Введите адрес кошелька', 'error');
+        showToast(t('error'), t('enterWallet'), 'error');
     }
 }
 
@@ -276,16 +334,16 @@ async function saveCard() {
                 userData.requisites.cardBank = bank;
                 userData.requisites.cardCurrency = currency;
                 updateUserInterface();
-                showToast('Успешно', 'Банковская карта сохранена', 'success');
+                showToast(t('success'), t('bankCardSaved'), 'success');
             } else {
                 throw new Error('Ошибка сохранения');
             }
         } catch (error) {
             console.error('Ошибка:', error);
-            showToast('Ошибка', 'Не удалось сохранить карту', 'error');
+            showToast(t('error'), t('saveError'), 'error');
         }
     } else {
-        showToast('Ошибка', 'Заполните все поля', 'error');
+        showToast(t('error'), t('fillAllFields'), 'error');
     }
 }
 
@@ -311,16 +369,16 @@ async function saveTelegram() {
             if (response.ok) {
                 userData.requisites.telegram = telegram;
                 updateUserInterface();
-                showToast('Успешно', 'Telegram сохранён', 'success');
+                showToast(t('success'), t('telegramSaved'), 'success');
             } else {
                 throw new Error('Ошибка сохранения');
             }
         } catch (error) {
             console.error('Ошибка:', error);
-            showToast('Ошибка', 'Не удалось сохранить Telegram', 'error');
+            showToast(t('error'), t('saveError'), 'error');
         }
     } else {
-        showToast('Ошибка', 'Введите username', 'error');
+        showToast(t('error'), t('fillAllFields'), 'error');
     }
 }
 
@@ -352,15 +410,15 @@ function setupOrderCreation() {
             const payment = this.getAttribute('data-payment');
             
             if (payment === 'ton' && !userData.requisites.tonWallet) {
-                showToast('Ошибка', 'Добавьте TON кошелёк в разделе Реквизиты', 'error');
+                showToast(t('error'), t('addTonWallet'), 'error');
                 return;
             }
             if (payment === 'card' && !userData.requisites.card) {
-                showToast('Ошибка', 'Добавьте банковскую карту в разделе Реквизиты', 'error');
+                showToast(t('error'), t('addBankCard'), 'error');
                 return;
             }
             if (payment === 'stars' && !userData.requisites.telegram) {
-                showToast('Ошибка', 'Добавьте Telegram в разделе Реквизиты', 'error');
+                showToast(t('error'), t('addTelegram'), 'error');
                 return;
             }
             
@@ -420,7 +478,7 @@ async function createOrder() {
     const description = document.getElementById('orderDescription').value;
     
     if (!amount || !description) {
-        showToast('Ошибка', 'Заполните все поля', 'error');
+        showToast(t('error'), t('fillAllFields'), 'error');
         return;
     }
     
@@ -458,14 +516,14 @@ async function createOrder() {
         if (response.ok) {
             const order = await response.json();
             await loadUserOrders();
-            showToast('Успешно', 'Ордер создан!', 'success');
+            showToast(t('success'), t('orderCreated'), 'success');
             showOrderDetailsModal(order);
         } else {
             throw new Error('Ошибка создания ордера');
         }
     } catch (error) {
         console.error('Ошибка:', error);
-        showToast('Ошибка', 'Не удалось создать ордер', 'error');
+        showToast(t('error'), t('createOrderError'), 'error');
     }
 }
 
@@ -489,7 +547,7 @@ function updateOrdersList() {
         
         const newBtn = document.createElement('button');
         newBtn.className = 'btn btn-primary btn-full';
-        newBtn.textContent = '+ Создать новый ордер';
+        newBtn.textContent = '+ ' + t('createNewOrder');
         newBtn.onclick = showCreateOrderForm;
         listElement.appendChild(newBtn);
     }
@@ -503,15 +561,15 @@ function createOrderCard(order) {
     };
     
     const typeNames = {
-        nft_gift: 'NFT подарок',
-        nft_username: 'NFT username',
-        nft_number: 'NFT number'
+        nft_gift: t('nftGift'),
+        nft_username: t('nftUsername'),
+        nft_number: t('nftNumber')
     };
     
     const statusClass = order.status === 'active' ? 'status-active' : 
                        order.status === 'paid' ? 'status-paid' : 'status-completed';
-    const statusText = order.status === 'active' ? 'Активен' : 
-                      order.status === 'paid' ? 'Оплачен' : 'Завершён';
+    const statusText = order.status === 'active' ? t('statusActive') : 
+                      order.status === 'paid' ? t('statusPaid') : t('statusCompleted');
     
     const orderLink = window.location.origin + window.location.pathname + '?order=' + order.code;
     
@@ -520,23 +578,23 @@ function createOrderCard(order) {
     // Продавец
     if (order.seller_id === userData.id) {
         if (order.status === 'active') {
-            buttons = `<button class="btn btn-secondary" onclick="copyOrderLink('${orderLink}')">Копировать ссылку</button>`;
+            buttons = `<button class="btn btn-secondary" onclick="copyOrderLink('${orderLink}')">${t('copyLink')}</button>`;
         } else if (order.status === 'paid') {
-            buttons = `<button class="btn btn-primary" onclick="confirmTransfer(${order.id})">Актив передан</button>`;
+            buttons = `<button class="btn btn-primary" onclick="confirmTransfer(${order.id})">${t('assetTransferred')}</button>`;
         }
     }
     // Покупатель
     else if (order.buyer_id === userData.id) {
         if (order.status === 'active') {
-            buttons = `<button class="btn btn-primary" onclick="confirmPayment(${order.id})">Я оплатил</button>`;
+            buttons = `<button class="btn btn-primary" onclick="confirmPayment(${order.id})">${t('iPaid')}</button>`;
         } else if (order.status === 'paid') {
-            buttons = `<button class="btn btn-success" onclick="confirmReceipt(${order.id})">Подтвердить получение</button>`;
+            buttons = `<button class="btn btn-success" onclick="confirmReceipt(${order.id})">${t('confirmReceipt')}</button>`;
         }
     }
     
     // Админ может подтверждать оплату
     if (userData.isAdmin && order.status === 'active' && order.buyer_id) {
-        buttons += `<button class="btn btn-success" onclick="confirmPayment(${order.id})" style="margin-left: 10px;">Админ: Оплачено</button>`;
+        buttons += `<button class="btn btn-success" onclick="confirmPayment(${order.id})" style="margin-left: 10px;">${t('adminPaid')}</button>`;
     }
     
     return `<div class="order-card">
@@ -546,29 +604,29 @@ function createOrderCard(order) {
             </div>
             <div class="order-details">
                 <div class="order-detail">
-                    <span class="detail-label">Тип:</span>
+                    <span class="detail-label">${t('type')}</span>
                     <span class="detail-value">${typeNames[order.type]}</span>
                 </div>
                 <div class="order-detail">
-                    <span class="detail-label">Оплата:</span>
+                    <span class="detail-label">${t('payment')}</span>
                     <span class="detail-value">${paymentIcons[order.payment_method]} ${order.currency}</span>
                 </div>
                 <div class="order-detail">
-                    <span class="detail-label">Сумма:</span>
+                    <span class="detail-label">${t('amount')}</span>
                     <span class="detail-value">${order.amount} ${order.currency}</span>
                 </div>
                 <div class="order-detail">
-                    <span class="detail-label">Описание:</span>
+                    <span class="detail-label">${t('descriptionLabel')}</span>
                     <span class="detail-value">${order.description}</span>
                 </div>
                 ${order.buyer_id === userData.id && order.status === 'active' ? `
                 <div class="order-detail">
-                    <span class="detail-label">Реквизиты:</span>
+                    <span class="detail-label">${t('requisitesLabel')}</span>
                     <span class="detail-value">${order.seller_requisites}</span>
                 </div>` : ''}
             </div>
             ${order.seller_id === userData.id ? `<div class="order-link">
-                <strong>Ссылка:</strong><br>
+                <strong>${t('link')}</strong><br>
                 ${orderLink}
             </div>` : ''}
             <div class="order-actions">
@@ -580,7 +638,7 @@ function createOrderCard(order) {
 function copyOrderLink(link) {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(link).then(function() {
-            showToast('Успешно', 'Ссылка скопирована', 'success');
+            showToast(t('success'), t('linkCopied'), 'success');
         });
     } else {
         const textarea = document.createElement('textarea');
@@ -589,7 +647,7 @@ function copyOrderLink(link) {
         textarea.select();
         document.execCommand('copy');
         document.body.removeChild(textarea);
-        showToast('Успешно', 'Ссылка скопирована', 'success');
+        showToast(t('success'), t('linkCopied'), 'success');
     }
 }
 
@@ -611,7 +669,7 @@ async function confirmPayment(orderId) {
             const data = await response.json();
             console.log('✅ Оплата подтверждена, ответ сервера:', data);
             await loadUserOrders();
-            showToast('Оплата подтверждена', 'Продавцу отправлено уведомление', 'success');
+            showToast(t('paymentConfirmed'), t('sellerNotified'), 'success');
         } else {
             const error = await response.json();
             console.error('❌ Ошибка от сервера:', error);
@@ -619,7 +677,7 @@ async function confirmPayment(orderId) {
         }
     } catch (error) {
         console.error('❌ Ошибка confirmPayment:', error);
-        showToast('Ошибка', 'Не удалось подтвердить оплату', 'error');
+        showToast(t('error'), t('confirmPaymentError'), 'error');
     }
 }
 
@@ -629,15 +687,15 @@ async function confirmTransfer(orderId) {
     
     console.log('📦 Продавец подтверждает передачу актива для ордера:', orderId);
     
-    showModal('Подтверждение передачи', 
-        `<p>Вы подтверждаете, что актив передан эскроу аккаунту?</p>
-        <p>Сделка: <strong>#${order.code}</strong></p>
+    showModal(t('confirmTransferTitle'), 
+        `<p>${t('confirmTransferText')}</p>
+        <p>${t('deal')} <strong>#${order.code}</strong></p>
         <p style="color: var(--gray-600); font-size: 14px; margin-top: 16px;">
-            После подтверждения покупатель получит уведомление о необходимости проверить получение актива.
+            ${t('confirmTransferNote')}
         </p>
         <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button class="btn btn-secondary" style="flex: 1;" onclick="closeModal()">Отмена</button>
-            <button class="btn btn-primary" style="flex: 1;" onclick="actuallyConfirmTransfer(${orderId})">Подтвердить</button>
+            <button class="btn btn-secondary" style="flex: 1;" onclick="closeModal()">${t('cancel')}</button>
+            <button class="btn btn-primary" style="flex: 1;" onclick="actuallyConfirmTransfer(${orderId})">${t('confirm')}</button>
         </div>`
     );
 }
@@ -645,7 +703,7 @@ async function confirmTransfer(orderId) {
 async function actuallyConfirmTransfer(orderId) {
     console.log('✅ Окончательное подтверждение передачи');
     closeModal();
-    showToast('Успешно', 'Покупатель уведомлен о передаче актива', 'success');
+    showToast(t('success'), t('buyerNotified'), 'success');
 }
 
 async function confirmReceipt(orderId) {
@@ -669,39 +727,37 @@ async function confirmReceipt(orderId) {
             await initUser();
             closeModal();
             
-            // Показываем большое модальное окно с благодарностью
             showCompletionModal(order);
         } else {
             throw new Error('Ошибка обновления статуса');
         }
     } catch (error) {
         console.error('Ошибка:', error);
-        showToast('Ошибка', 'Не удалось завершить сделку', 'error');
+        showToast(t('error'), t('completeDealError'), 'error');
     }
 }
 
 function showCompletionModal(order) {
     const typeNames = {
-        nft_gift: 'NFT подарок',
-        nft_username: 'NFT username',
-        nft_number: 'NFT number'
+        nft_gift: t('nftGift'),
+        nft_username: t('nftUsername'),
+        nft_number: t('nftNumber')
     };
     
-    showModal('🎉 Сделка успешно завершена!', 
+    showModal(t('dealCompletedTitle'), 
         `<div style="text-align: center;">
             <div style="font-size: 64px; margin: 20px 0;">✅</div>
-            <h2 style="color: var(--success); margin-bottom: 24px;">Благодарим за использование GiftMarket!</h2>
+            <h2 style="color: var(--success); margin-bottom: 24px;">${t('thankYou')}</h2>
             <div class="modal-info-box" style="text-align: left;">
-                <p><strong>Номер сделки:</strong> #${order.code}</p>
-                <p><strong>Тип:</strong> ${typeNames[order.type]}</p>
-                <p><strong>Сумма:</strong> ${order.amount} ${order.currency}</p>
-                <p><strong>Описание:</strong> ${order.description}</p>
+                <p><strong>${t('orderNumber')}</strong> #${order.code}</p>
+                <p><strong>${t('type')}</strong> ${typeNames[order.type]}</p>
+                <p><strong>${t('amount')}</strong> ${order.amount} ${order.currency}</p>
+                <p><strong>${t('descriptionLabel')}</strong> ${order.description}</p>
             </div>
             <p style="margin-top: 24px; color: var(--gray-600); line-height: 1.6;">
-                Ваша сделка успешно завершена и учтена в статистике. 
-                Спасибо за доверие к нашему сервису безопасных транзакций!
+                ${t('dealCompletedText')}
             </p>
-            <button class="btn btn-primary btn-large btn-full" style="margin-top: 24px;" onclick="closeModal()">Отлично!</button>
+            <button class="btn btn-primary btn-large btn-full" style="margin-top: 24px;" onclick="closeModal()">${t('great')}</button>
         </div>`
     );
 }
@@ -709,17 +765,17 @@ function showCompletionModal(order) {
 function showOrderDetailsModal(order) {
     const orderLink = window.location.origin + window.location.pathname + '?order=' + order.code;
     
-    showModal('Ордер создан!', 
+    showModal(t('orderCreatedTitle'), 
         `<div class="modal-info-box">
-            <p><strong>Код:</strong> #${order.code}</p>
-            <p><strong>Сумма:</strong> ${order.amount} ${order.currency}</p>
-            <p><strong>Описание:</strong> ${order.description}</p>
+            <p><strong>${t('code')}</strong> #${order.code}</p>
+            <p><strong>${t('amount')}</strong> ${order.amount} ${order.currency}</p>
+            <p><strong>${t('descriptionLabel')}</strong> ${order.description}</p>
         </div>
         <div class="order-link" style="margin: 15px 0;">
-            <strong>Ссылка для покупателя:</strong><br>
+            <strong>${t('buyerLink')}</strong><br>
             ${orderLink}
         </div>
-        <button class="btn btn-primary btn-full" onclick="copyOrderLink('${orderLink}'); closeModal();">Скопировать ссылку</button>`
+        <button class="btn btn-primary btn-full" onclick="copyOrderLink('${orderLink}'); closeModal();">${t('copyLink')}</button>`
     );
     
     setTimeout(function() {
@@ -746,7 +802,7 @@ function startDealsHistory() {
 }
 
 function generateRandomDeal() {
-    const types = ['NFT подарок', 'NFT username', 'NFT number'];
+    const types = [t('nftGift'), t('nftUsername'), t('nftNumber')];
     const typeWeights = [0.95, 0.03, 0.02];
     
     const rand = Math.random();
@@ -773,7 +829,6 @@ function generateRandomDeal() {
         amount = Math.round((Math.random() * 10000 + 1000) / 5) * 5;
     }
     
-    // Генерация буквенно-цифрового кода (8 символов, только заглавные буквы и цифры)
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
     for (let i = 0; i < 8; i++) {
@@ -798,7 +853,7 @@ function addDealToHistory(container, deal) {
         </div>
         <div class="deal-right">
             <div class="deal-amount">${deal.amount} ${deal.currency}</div>
-            <div class="deal-status">Завершена</div>
+            <div class="deal-status">${t('statusCompleted')}</div>
         </div>`;
     
     container.insertBefore(dealElement, container.firstChild);
@@ -822,7 +877,7 @@ function updateProfileStats() {
     currencyStats.innerHTML = '';
     
     if (Object.keys(userData.stats.volumes).length === 0) {
-        currencyStats.innerHTML = '<p class="empty-text">Нет данных</p>';
+        currencyStats.innerHTML = '<p class="empty-text" data-i18n="noData">' + t('noData') + '</p>';
     } else {
         for (const currency in userData.stats.volumes) {
             const item = document.createElement('div');
@@ -841,7 +896,7 @@ function updateDealsCount() {
     if (!isNaN(count) && count >= 0) {
         userData.stats.completedDeals = count;
         updateProfileStats();
-        showToast('Успешно', 'Количество сделок обновлено', 'success');
+        showToast(t('success'), t('dealsCountUpdated'), 'success');
     }
 }
 
@@ -859,7 +914,7 @@ function addVolume() {
             }
             userData.stats.volumes[currency] += amount;
             updateProfileStats();
-            showToast('Успешно', 'Оборот добавлен', 'success');
+            showToast(t('success'), t('volumeAdded'), 'success');
             document.getElementById('adminVolumeInput').value = '';
         }
     }
@@ -892,7 +947,7 @@ function setupAdminTrigger() {
             if (clickCount === 5) {
                 userData.isAdmin = true;
                 updateUserInterface();
-                showToast('Админ доступ', 'Получен доступ администратора', 'success');
+                showToast(t('adminAccess'), t('adminAccess'), 'success');
                 clickCount = 0;
                 return;
             }
@@ -981,15 +1036,15 @@ async function checkNotifications() {
                 
                 if (notification.type === 'buyer_joined') {
                     console.log('👤 Новый покупатель присоединился');
-                    showToast('Новый покупатель', notification.message, 'info');
+                    showToast(t('newBuyer'), notification.message, 'info');
                     loadUserOrders();
                 } else if (notification.type === 'payment_confirmed') {
                     console.log('💰 Оплата подтверждена');
-                    showToast('Оплата получена', notification.message, 'success');
+                    showToast(t('paymentReceived'), notification.message, 'success');
                     loadUserOrders();
                 } else if (notification.type === 'order_completed') {
                     console.log('✅ Сделка завершена');
-                    showToast('Сделка завершена', notification.message, 'success');
+                    showToast(t('dealCompleted'), notification.message, 'success');
                     loadUserOrders();
                     initUser();
                 }
@@ -1021,7 +1076,7 @@ async function checkOrderFromUrl() {
                 const order = await response.json();
                 
                 if (order.seller_id === userData.id) {
-                    showToast('Информация', 'Это ваш ордер', 'info');
+                    showToast(t('info'), t('yourOrder'), 'info');
                     showPage('orders');
                     return;
                 }
@@ -1029,45 +1084,45 @@ async function checkOrderFromUrl() {
                 if (order.status === 'active') {
                     await showBuyerView(order);
                 } else {
-                    showToast('Ошибка', 'Этот ордер уже неактивен', 'error');
+                    showToast(t('error'), t('orderInactive'), 'error');
                 }
             } else {
-                showToast('Ошибка', 'Ордер не найден', 'error');
+                showToast(t('error'), t('orderNotFound'), 'error');
             }
         } catch (error) {
             console.error('Ошибка загрузки ордера:', error);
-            showToast('Ошибка', 'Не удалось загрузить ордер', 'error');
+            showToast(t('error'), t('loadOrderError'), 'error');
         }
     }
 }
 
 async function showBuyerView(order) {
-    const paymentInfo = order.payment_method === 'ton' ? 'TON кошелёк' :
-                       order.payment_method === 'card' ? 'Банковская карта' :
-                       'Telegram Stars';
+    const paymentInfo = order.payment_method === 'ton' ? t('tonWallet') :
+                       order.payment_method === 'card' ? t('bankCard') :
+                       t('telegramStars');
     
     const typeNames = {
-        nft_gift: 'NFT подарок',
-        nft_username: 'NFT username',
-        nft_number: 'NFT number'
+        nft_gift: t('nftGift'),
+        nft_username: t('nftUsername'),
+        nft_number: t('nftNumber')
     };
     
-    showModal(`Ордер #${order.code}`, `
+    showModal(`${t('orderCode')}${order.code}`, `
         <div class="modal-info-box">
-            <p><strong>Тип:</strong> ${typeNames[order.type]}</p>
-            <p><strong>Сумма:</strong> ${order.amount} ${order.currency}</p>
-            <p><strong>Способ оплаты:</strong> ${paymentInfo}</p>
-            <p><strong>Описание:</strong> ${order.description}</p>
+            <p><strong>${t('type')}</strong> ${typeNames[order.type]}</p>
+            <p><strong>${t('amount')}</strong> ${order.amount} ${order.currency}</p>
+            <p><strong>${t('paymentMethod')}</strong> ${paymentInfo}</p>
+            <p><strong>${t('descriptionLabel')}</strong> ${order.description}</p>
         </div>
         <div class="modal-info-box">
-            <p><strong>Реквизиты для оплаты:</strong></p>
+            <p><strong>${t('forPayment')}</strong></p>
             <div class="modal-requisites">${order.seller_requisites}</div>
         </div>
         <p style="color: var(--gray-600); font-size: 14px; margin-top: 16px; line-height: 1.6;">
-            После оплаты свяжитесь с продавцом через поддержку <strong>@GiftMarketEscrow</strong> и ожидайте подтверждения.
+            ${t('paymentInstructions')}
         </p>
-        <button class="btn btn-primary btn-full" style="margin-top: 20px;" onclick="joinOrder(${order.id})">Принять ордер</button>
-        <button class="btn btn-secondary btn-full" style="margin-top: 10px;" onclick="closeModal()">Отмена</button>
+        <button class="btn btn-primary btn-full" style="margin-top: 20px;" onclick="joinOrder(${order.id})">${t('acceptOrder')}</button>
+        <button class="btn btn-secondary btn-full" style="margin-top: 10px;" onclick="closeModal()">${t('cancel')}</button>
     `);
 }
 
@@ -1088,16 +1143,16 @@ async function joinOrder(orderId) {
             console.log('✅ Успешно присоединились к ордеру');
             await loadUserOrders();
             closeModal();
-            showToast('Успешно', 'Вы подключились к ордеру!', 'success');
+            showToast(t('success'), t('connectedToOrder'), 'success');
             showPage('orders');
             
             window.history.replaceState({}, document.title, window.location.pathname);
         } else {
             const error = await response.json();
-            throw new Error(error.error || 'Ошибка подключения к ордеру');
+            throw new Error(error.error || t('joinOrderError'));
         }
     } catch (error) {
         console.error('❌ Ошибка:', error);
-        showToast('Ошибка', error.message, 'error');
+        showToast(t('error'), error.message, 'error');
     }
 }

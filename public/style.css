@@ -989,7 +989,7 @@ body {
     font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
     font-size: 14px;
     word-break: break-all;
-    background: var(--white);
+    background: rgb(255, 255, 255);
     padding: 14px;
     border-radius: 12px;
     margin-top: 12px;
@@ -1067,5 +1067,64 @@ body {
     .btn-large {
         font-size: 16px;
         height: 56px;
+    }
+}
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.language-switcher {
+    display: flex;
+    gap: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #EC4899 100%);
+    padding: 4px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.lang-btn {
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: rgb(255, 255, 255);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.lang-btn:hover {
+    color: rgba(0, 0, 0, 0.9);
+}
+
+.lang-btn.active {
+    background: linear-gradient(135deg, #44518a 10%, #725094 90%);
+    color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.lang-btn:active {
+    transform: scale(0.95);
+}
+
+@media (max-width: 480px) {
+    .header-right {
+        gap: 12px;
+    }
+    
+    .language-switcher {
+        gap: 2px;
+        padding: 3px;
+    }
+    
+    .lang-btn {
+        padding: 5px 10px;
+        font-size: 12px;
     }
 }
